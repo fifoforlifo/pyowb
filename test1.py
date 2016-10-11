@@ -30,9 +30,15 @@ test1_plan = \
                     NAME : 'Buy Milk',
                     EFFORT : 2,
                 },
+                {
+                    ID   : 'buy_tomatoes',
+                    NAME : 'Buy Tomatoes',
+                    EFFORT : 3,
+                },
             ],
         },
         {
+            ID    : 'breakfast',
             NAME  : 'Breakfast',
             CHILDREN :
             [
@@ -59,7 +65,18 @@ test1_plan = \
                     EFFORT : 8,
                 },
             ],
-        }
+        },
+        {
+            NAME  : 'Lunch',
+            CHILDREN :
+            [
+                {
+                    NAME : 'Tomato Soup',
+                    DEPS : [ 'buy_tomatoes', 'breakfast' ],
+                    EFFORT : 6,
+                },
+            ],
+        },
     ],
 }
 

@@ -39,16 +39,20 @@ def _xml_escape(string):
 
 def _date_as_owb_string(date):
     return date.strftime('%Y-%m-%dT%H:%M:%S')
-    
+
 def _parse_category(name):
     index_of_dash = name.find('-')
     if index_of_dash == -1:
         return ''
     return name[0:index_of_dash].rstrip()
 
-def _output_tasks_recursive(outfile, deps, task, level, auto_predecessor_id=None):
+def _has_children(task):
+    return (CHILDREN in task) and (len(task[CHILDREN]) != 0)
+
+def _output_tasks_recursive(outfile, id_to_task, deps, task, level, auto_predecessor_id=None):
     if ID not in task:
         task[ID] = _next_global_auto_id()
+    id_to_task[task[ID]] = task
 
     # TODO: add all deps
     if auto_predecessor_id:
@@ -65,7 +69,7 @@ def _output_tasks_recursive(outfile, deps, task, level, auto_predecessor_id=None
     _id = _xml_escape(task[ID])
     _desc = _xml_escape(task.get(DESC, ' '))
     _level = level
-    _summary = 'true' if (CHILDREN in task) and (len(task[CHILDREN]) != 0) else 'false'
+    _summary = 'true' if _has_children(task) else 'false'
     _start_date = _date_as_owb_string(_global_start_date)
     _end_date = _date_as_owb_string(_global_start_date + timedelta(days=_effort_in_calendar_days))
 
@@ -97,12 +101,12 @@ def _output_tasks_recursive(outfile, deps, task, level, auto_predecessor_id=None
                 auto_predecessor_id = None
                 in_sequence = False
             else:
-                _output_tasks_recursive(outfile, deps, child, level+1, auto_predecessor_id)
+                _output_tasks_recursive(outfile, id_to_task, deps, child, level+1, auto_predecessor_id)
                 if in_sequence:
                     auto_predecessor_id = child[ID]
 
 
-def _output_tasks(outfile, deps, plan):
+def _output_tasks(outfile, id_to_task, deps, plan):
     prefix = '''
       <Tasks>
 '''
@@ -110,11 +114,27 @@ def _output_tasks(outfile, deps, plan):
       </Tasks>
 '''
     outfile.write(prefix.lstrip('\n'))
-    _output_tasks_recursive(outfile, deps, plan, 1)
+    _output_tasks_recursive(outfile, id_to_task, deps, plan, 1)
     outfile.write(suffix.lstrip('\n'))
 
+# returns list of leaf predecessor_id
+#
+# OWB ignores dependencies on non-leaf tasks; therefore we must
+# recursively resolve the dependencies down to leaf nodes.
+def _get_leaf_predecessor_ids(id_to_task, predecessor_id, leaf_predecessor_ids):
+    def _recursive_resolve(id):
+        task = id_to_task[id]
+        if _has_children(task):
+            for child in task[CHILDREN]:
+                if isinstance(child, str):
+                    continue
+                _recursive_resolve(child[ID])
+        else:
+            leaf_predecessor_ids[id] = True
 
-def _output_dependencies(outfile, deps):
+    _recursive_resolve(predecessor_id)
+
+def _output_dependencies(outfile, id_to_task, deps):
     prefix = '''
       <Dependencies>
 '''
@@ -123,9 +143,12 @@ def _output_dependencies(outfile, deps):
 '''
     outfile.write(prefix.lstrip('\n'))
     for successor_id,predecessor_ids in deps.items():
-        for predecessor_id,_ in predecessor_ids.items():
+        leaf_predecessor_ids = {} # id:True
+        for predecessor_id in predecessor_ids.keys():
+            _get_leaf_predecessor_ids(id_to_task, predecessor_id, leaf_predecessor_ids)
+        for leaf_predecessor_id in leaf_predecessor_ids.keys():
             outfile.write('''        <Dependency
-          predecessorID="{predecessor_id}" startFinishType="0" lag="0.0" lagType="0" successorID="{successor_id}"/>
+          predecessorID="{leaf_predecessor_id}" startFinishType="0" lag="0.0" lagType="0" successorID="{successor_id}"/>
 '''.format(**locals()))
     outfile.write(suffix.lstrip('\n'))
 
@@ -151,12 +174,14 @@ def _output_main_file(outfile, plan):
   </Projects>
 </WORKBENCH_PROJECT>'''
 
-    # key = successor, rhs = {predecessor:True}
+    # key = ID string, value = task dict
+    id_to_task = {}
+    # key = successor, value = {predecessor:True}
     deps = {}
 
     outfile.write(prefix.lstrip('\n'))
-    _output_tasks(outfile, deps, plan)
-    _output_dependencies(outfile, deps)
+    _output_tasks(outfile, id_to_task, deps, plan)
+    _output_dependencies(outfile, id_to_task, deps)
     outfile.write(suffix.lstrip('\n'))
 
 
