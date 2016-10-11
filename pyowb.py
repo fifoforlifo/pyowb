@@ -5,23 +5,30 @@
 #   Children can contain sequences, to simplify data input;
 #   sequenced tasks are automatically chained (dependencies).
 
+import math
+from datetime import datetime, timedelta
+
 ID = 'id'
 NAME = 'name'
 DESC = 'desc'
 DEPS = 'deps'
-COST = 'cost'
+EFFORT = 'effort'
 CHILDREN = 'children'
 SEQUENCE = 'sequence'
 PARALLEL = 'parallel'
 
-global_auto_id = 100
-def next_global_auto_id():
-    global global_auto_id, global_unique_suffix
-    auto_id = '_auto' + str(global_auto_id)
-    global_auto_id += 1
+# Start date is a monday.  End-date calculation needs to add 2 days per 5 (for weekends);
+# starting on a monday simplifies calculation of the extra.
+_global_start_date = datetime(year=2016, month=10, day=10)
+
+_global_auto_id = 100
+def _next_global_auto_id():
+    global _global_auto_id
+    auto_id = '_auto' + str(_global_auto_id)
+    _global_auto_id += 1
     return auto_id
 
-def insert_dependency(deps, successor, predecessor):
+def _insert_dependency(deps, successor, predecessor):
     if successor not in deps:
         deps[successor] = {}
     deps[successor][predecessor] = True
@@ -29,21 +36,42 @@ def insert_dependency(deps, successor, predecessor):
 
 def _xml_escape(string):
     return string.replace('&', '&amp;')
+
+def _date_as_owb_string(date):
+    return date.strftime('%Y-%m-%dT%H:%M:%S')
     
+def _parse_category(name):
+    index_of_dash = name.find('-')
+    if index_of_dash == -1:
+        return ''
+    return name[0:index_of_dash].rstrip()
+
 def _output_tasks_recursive(outfile, deps, task, level, auto_predecessor_id=None):
     if ID not in task:
-        task[ID] = next_global_auto_id()
+        task[ID] = _next_global_auto_id()
 
     # TODO: add all deps
     if auto_predecessor_id:
-        insert_dependency(deps, task[ID], auto_predecessor_id)
+        _insert_dependency(deps, task[ID], auto_predecessor_id)
     if DEPS in task:
         for predecessor_id in task[DEPS]:
-            insert_dependency(deps, task[ID], predecessor_id)
+            _insert_dependency(deps, task[ID], predecessor_id)
+
+    _effort_in_days = task.get(EFFORT, 0)
+    _effort_in_calendar_days = _effort_in_days + math.floor((_effort_in_days - 1) / 5) * 2
+
+    _category = _parse_category(task[NAME])
+    _name = _xml_escape(task[NAME])
+    _id = _xml_escape(task[ID])
+    _desc = _xml_escape(task.get(DESC, ' '))
+    _level = level
+    _summary = 'true' if (CHILDREN in task) and (len(task[CHILDREN]) != 0) else 'false'
+    _start_date = _date_as_owb_string(_global_start_date)
+    _end_date = _date_as_owb_string(_global_start_date + timedelta(days=_effort_in_calendar_days))
 
     task_xml = '''
         <Task
-          category="drv" start="2016-10-10T08:00:00" finish="2016-10-12T17:00:00"
+          category="{_category}" start="{_start_date}" finish="{_end_date}"
           proxy="false"
           critical="false" status="0" outlineLevel="{_level}" summary="{_summary}"
           milestone="false" name="{_name}" taskID="{_id}" fixed="false"
@@ -54,16 +82,7 @@ def _output_tasks_recursive(outfile, deps, task, level, auto_predecessor_id=None
           </Notes>
         </Task>
 '''
-
-    is_summary = 'true' if (CHILDREN in task) and (len(task[CHILDREN]) != 0) else 'false'
-
-    formatted_task = task_xml.lstrip('\n').format(
-        _name = _xml_escape(task[NAME]),
-        _id = _xml_escape(task[ID]),
-        _desc = _xml_escape(task.get(DESC, ' ')),
-        _level = level,
-        _summary = is_summary,
-    )
+    formatted_task = task_xml.lstrip('\n').format(**locals())
     outfile.write(formatted_task)
 
     children = task.get(CHILDREN, None)

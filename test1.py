@@ -12,23 +12,23 @@ test1_plan = \
                 SEQUENCE,
                 {
                     NAME : 'Buy Flour',
-                    COST : 1.1,
+                    EFFORT : 1,
                 },
                 {
                     ID   : 'buy_chocolate',
                     NAME : 'Buy Chocolate',
-                    COST : 1.2,
+                    EFFORT : 3,
                 },
                 PARALLEL,
                 {
                     ID   : 'buy_eggs',
                     NAME : 'Buy Eggs',
-                    COST : 2,
+                    EFFORT : 5,
                 },
                 {
                     ID   : 'buy_milk',
                     NAME : 'Buy Milk',
-                    COST : 3,
+                    EFFORT : 2,
                 },
             ],
         },
@@ -40,18 +40,23 @@ test1_plan = \
                 {
                     NAME : 'Scrambled Eggs',
                     DEPS : [ 'buy_eggs', 'buy_milk' ],
-                    COST : 3,
+                    EFFORT : 3,
                 },
                 {
                     NAME : 'Chocolate Milk',
                     DEPS : [ 'buy_chocolate', 'buy_milk' ],
-                    COST : 0.5,
+                    EFFORT : 1,
                 },
                 PARALLEL,
                 {
-                    NAME : 'Choco Muffins',
+                    NAME : 'Plain Milk',
+                    DEPS : [ 'buy_milk' ],
+                    EFFORT : 1,
+                },
+                {
+                    NAME : 'Chocolate Muffins',
                     DEPS : [ 'buy_chocolate', 'buy_milk', 'buy_eggs' ],
-                    COST : 8,
+                    EFFORT : 8,
                 },
             ],
         }
