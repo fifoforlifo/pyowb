@@ -37,6 +37,20 @@ test1_plan = \
                 },
             ],
         },
+        # Declare Lunch before its dependencies to test order-independence.
+        # note: this makes the Gantt chart ugly; generally you want to declare things in work-order
+        #       to get a nice-looking cascade
+        {
+            NAME  : 'Lunch',
+            CHILDREN :
+            [
+                {
+                    NAME : 'Tomato Soup',
+                    DEPS : [ 'buy_tomatoes', 'breakfast' ],
+                    EFFORT : 6,
+                },
+            ],
+        },
         {
             ID    : 'breakfast',
             NAME  : 'Breakfast',
@@ -63,17 +77,6 @@ test1_plan = \
                     NAME : 'Chocolate Muffins',
                     DEPS : [ 'buy_chocolate', 'buy_milk', 'buy_eggs' ],
                     EFFORT : 8,
-                },
-            ],
-        },
-        {
-            NAME  : 'Lunch',
-            CHILDREN :
-            [
-                {
-                    NAME : 'Tomato Soup',
-                    DEPS : [ 'buy_tomatoes', 'breakfast' ],
-                    EFFORT : 6,
                 },
             ],
         },

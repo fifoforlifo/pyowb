@@ -5,6 +5,7 @@
 #   Children can contain sequences, to simplify data input;
 #   sequenced tasks are automatically chained (dependencies).
 
+import sys
 import math
 from datetime import datetime, timedelta
 
@@ -49,18 +50,45 @@ def _parse_category(name):
 def _has_children(task):
     return (CHILDREN in task) and (len(task[CHILDREN]) != 0)
 
-def _output_tasks_recursive(outfile, id_to_task, deps, task, level, auto_predecessor_id=None):
-    if ID not in task:
-        task[ID] = _next_global_auto_id()
-    id_to_task[task[ID]] = task
 
-    # TODO: add all deps
-    if auto_predecessor_id:
-        _insert_dependency(deps, task[ID], auto_predecessor_id)
-    if DEPS in task:
+def _sanitize_tasks(plan, id_to_task, deps):
+    def _sanitize_recursive(task, auto_predecessor_id):
+        if ID not in task:
+            task[ID] = _next_global_auto_id()
+        id_to_task[task[ID]] = task
+
+        if DEPS not in task:
+            task[DEPS] = []
+        if auto_predecessor_id:
+            task[DEPS].append(auto_predecessor_id)
+
+        children = task.get(CHILDREN, None)
+        if children:
+            auto_predecessor_id = None
+            in_sequence = False
+            for child in children:
+                if child == SEQUENCE:
+                    auto_predecessor_id = None
+                    in_sequence = True
+                elif child == PARALLEL:
+                    auto_predecessor_id = None
+                    in_sequence = False
+                else:
+                    _sanitize_recursive(child, auto_predecessor_id)
+                    if in_sequence:
+                        auto_predecessor_id = child[ID]
+
+    _sanitize_recursive(plan, None)
+
+def _validate_tasks(id_to_task, deps):
+    for task in id_to_task.values():
         for predecessor_id in task[DEPS]:
+            if predecessor_id not in id_to_task:
+                sys.stderr.write('WARNING: ID={task[ID]} NAME={task[NAME]} : unknown dependency "{predecessor_id}"\n'.format(**locals()))
             _insert_dependency(deps, task[ID], predecessor_id)
 
+
+def _output_tasks_recursive(outfile, id_to_task, deps, task, level):
     _effort_in_days = task.get(EFFORT, 0)
     _effort_in_calendar_days = _effort_in_days + math.floor((_effort_in_days - 1) / 5) * 2
 
@@ -91,19 +119,11 @@ def _output_tasks_recursive(outfile, id_to_task, deps, task, level, auto_predece
 
     children = task.get(CHILDREN, None)
     if children:
-        auto_predecessor_id = None
-        in_sequence = False
         for child in children:
-            if child == SEQUENCE:
-                auto_predecessor_id = None
-                in_sequence = True
-            elif child == PARALLEL:
-                auto_predecessor_id = None
-                in_sequence = False
+            if isinstance(child, str):
+                continue
             else:
-                _output_tasks_recursive(outfile, id_to_task, deps, child, level+1, auto_predecessor_id)
-                if in_sequence:
-                    auto_predecessor_id = child[ID]
+                _output_tasks_recursive(outfile, id_to_task, deps, child, level+1)
 
 
 def _output_tasks(outfile, id_to_task, deps, plan):
@@ -175,9 +195,11 @@ def _output_main_file(outfile, plan):
 </WORKBENCH_PROJECT>'''
 
     # key = ID string, value = task dict
-    id_to_task = {}
+    id_to_task = {}    
     # key = successor, value = {predecessor:True}
     deps = {}
+    _sanitize_tasks(plan, id_to_task, deps)
+    _validate_tasks(id_to_task, deps)
 
     outfile.write(prefix.lstrip('\n'))
     _output_tasks(outfile, id_to_task, deps, plan)
