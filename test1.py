@@ -69,7 +69,7 @@ test1_plan = \
                 },
                 PARALLEL,
                 {
-                    NAME : 'Plain Milk',
+                    NAME : '"Plain" Milk',
                     DEPS : [ 'buy_milk' ],
                     EFFORT : 1,
                 },

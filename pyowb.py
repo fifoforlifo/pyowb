@@ -7,6 +7,7 @@
 
 import sys
 import math
+import xml.sax.saxutils
 from datetime import datetime, timedelta
 
 ID = 'id'
@@ -36,7 +37,7 @@ def _insert_dependency(deps, successor, predecessor):
 
 
 def _xml_escape(string):
-    return string.replace('&', '&amp;')
+    return xml.sax.saxutils.quoteattr(string)
 
 def _date_as_owb_string(date):
     return date.strftime('%Y-%m-%dT%H:%M:%S')
@@ -106,11 +107,11 @@ def _output_tasks_recursive(outfile, id_to_task, deps, task, level):
           category="{_category}" start="{_start_date}" finish="{_end_date}"
           proxy="false"
           critical="false" status="0" outlineLevel="{_level}" summary="{_summary}"
-          milestone="false" name="{_name}" taskID="{_id}" fixed="false"
+          milestone="false" name={_name} taskID={_id} fixed="false"
           locked="false" key="false" percComp="0.0" totalSlack="9.0" unplanned="false">
           <Notes>
             <Note
-              createdBy="Unknown" createdDate="2016-10-09T05:45:21" content="{_desc}"/>
+              createdBy="Unknown" createdDate="2016-10-09T05:45:21" content={_desc}/>
           </Notes>
         </Task>
 '''
