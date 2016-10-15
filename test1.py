@@ -83,4 +83,55 @@ test1_plan = \
     ],
 }
 
-plan_to_owb_xml('test1.xml', test1_plan)
+nested_sequences_plan = \
+{
+    ID : 'Top',
+    NAME : 'Top',
+    CHILDREN :
+    [
+        SEQUENCE,
+        {
+            ID : 'Top.A0',
+            NAME : 'Top.A0',
+            CHILDREN :
+            [
+                SEQUENCE,
+                {
+                    ID : 'Top.A0.B0',
+                    NAME : 'Top.A0.B0',
+                },
+                {
+                    ID : 'Top.A0.B1',
+                    NAME : 'Top.A0.B1',
+                },
+                SEQUENCE,
+                {
+                    ID : 'Top.A0.B2',
+                    NAME : 'Top.A0.B2',
+                },
+                {
+                    ID : 'Top.A0.B3',
+                    NAME : 'Top.A0.B3',
+                },
+            ],
+        },
+        {
+            ID : 'Top.A1',
+            NAME : 'Top.A1',
+            CHILDREN :
+            [
+                SEQUENCE,
+                {
+                    ID : 'Top.A1.B0',
+                    NAME : 'Top.A1.B0',
+                },
+                {
+                    ID : 'Top.A1.B1',
+                    NAME : 'Top.A1.B1',
+                },
+            ],
+        },
+    ],
+}
+
+plan_to_owb_xml('test1.xml', nested_sequences_plan)

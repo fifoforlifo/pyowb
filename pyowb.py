@@ -53,33 +53,37 @@ def _has_children(task):
 
 
 def _sanitize_tasks(plan, id_to_task, deps):
-    def _sanitize_recursive(task, auto_predecessor_id):
+    def _sanitize_recursive(task, auto_predecessor_stack):
         if ID not in task:
             task[ID] = _next_global_auto_id()
         id_to_task[task[ID]] = task
 
         if DEPS not in task:
             task[DEPS] = []
-        if auto_predecessor_id:
-            task[DEPS].append(auto_predecessor_id)
+        for auto_predecessor_id in auto_predecessor_stack:
+            if auto_predecessor_id:
+                task[DEPS].append(auto_predecessor_id)
 
         children = task.get(CHILDREN, None)
         if children:
-            auto_predecessor_id = None
+            auto_predecessor_stack.append(None)
             in_sequence = False
             for child in children:
                 if child == SEQUENCE:
-                    auto_predecessor_id = None
+                    auto_predecessor_stack[-1] = None
                     in_sequence = True
                 elif child == PARALLEL:
-                    auto_predecessor_id = None
+                    auto_predecessor_stack[-1] = None
                     in_sequence = False
                 else:
-                    _sanitize_recursive(child, auto_predecessor_id)
+                    _sanitize_recursive(child, auto_predecessor_stack)
+                    task[DEPS].append(child[ID])
                     if in_sequence:
-                        auto_predecessor_id = child[ID]
+                        auto_predecessor_stack[-1] = child[ID]
+            auto_predecessor_stack.pop()
 
-    _sanitize_recursive(plan, None)
+    auto_predecessor_stack = []
+    _sanitize_recursive(plan, auto_predecessor_stack)
 
 def _validate_tasks(id_to_task, deps):
     for task in id_to_task.values():
@@ -163,11 +167,13 @@ def _output_dependencies(outfile, id_to_task, deps):
       </Dependencies>
 '''
     outfile.write(prefix.lstrip('\n'))
-    for successor_id,predecessor_ids in deps.items():
+    for successor_id,predecessor_ids in sorted(deps.items()):
+        if _has_children(id_to_task[successor_id]):
+            continue
         leaf_predecessor_ids = {} # id:True
         for predecessor_id in predecessor_ids.keys():
             _get_leaf_predecessor_ids(id_to_task, predecessor_id, leaf_predecessor_ids)
-        for leaf_predecessor_id in leaf_predecessor_ids.keys():
+        for leaf_predecessor_id in sorted(leaf_predecessor_ids.keys()):
             outfile.write('''        <Dependency
           predecessorID="{leaf_predecessor_id}" startFinishType="0" lag="0.0" lagType="0" successorID="{successor_id}"/>
 '''.format(**locals()))
