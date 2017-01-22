@@ -15,10 +15,23 @@ from .tasks import *
 # starting on a monday simplifies calculation of the extra.
 _global_start_date = datetime(year=2016, month=10, day=10)
 
+def _insert_dependency(deps, successor, predecessor):
+    if successor not in deps:
+        deps[successor] = {}
+    deps[successor][predecessor] = True
+
+def _validate_tasks(id_to_task, deps):
+    for task in id_to_task.values():
+        for predecessor_id in task[DEPS]:
+            if predecessor_id not in id_to_task:
+                sys.stderr.write('WARNING: ID={task[ID]} NAME={task[NAME]} : unknown dependency "{predecessor_id}"\n'.format(**locals()))
+            _insert_dependency(deps, task[ID], predecessor_id)
+
 def _date_as_owb_string(date):
     return date.strftime('%Y-%m-%dT%H:%M:%S')
 
-def _output_tasks_recursive(outfile, id_to_task, deps, task, level):
+
+def _output_tasks_recursive(outfile, task, level):
     _effort_in_days = task.get(EFFORT, 0)
     _effort_in_calendar_days = _effort_in_days + math.floor((_effort_in_days - 1) / 5) * 2
 
@@ -53,10 +66,10 @@ def _output_tasks_recursive(outfile, id_to_task, deps, task, level):
             if isinstance(child, str):
                 continue
             else:
-                _output_tasks_recursive(outfile, id_to_task, deps, child, level+1)
+                _output_tasks_recursive(outfile, child, level+1)
 
 
-def _output_tasks(outfile, id_to_task, deps, plan):
+def _output_tasks(outfile, plan):
     prefix = '''
       <Tasks>
 '''
@@ -64,10 +77,11 @@ def _output_tasks(outfile, id_to_task, deps, plan):
       </Tasks>
 '''
     outfile.write(prefix.lstrip('\n'))
-    _output_tasks_recursive(outfile, id_to_task, deps, plan, 1)
+    _output_tasks_recursive(outfile, plan, 1)
     outfile.write(suffix.lstrip('\n'))
 
-# returns list of leaf predecessor_id
+
+# returns dict(leaf predecessor_id, True) to be used as a set
 #
 # OWB ignores dependencies on non-leaf tasks; therefore we must
 # recursively resolve the dependencies down to leaf nodes.
@@ -127,14 +141,14 @@ def _output_main_file(outfile, plan):
 </WORKBENCH_PROJECT>'''
 
     # key = ID string, value = task dict
-    id_to_task = {}    
+    id_to_task = {}
+    sanitize_tasks(plan, id_to_task, add_child_dependencies=True)
     # key = successor, value = {predecessor:True}
     deps = {}
-    sanitize_tasks(plan, id_to_task, deps)
-    validate_tasks(id_to_task, deps)
+    _validate_tasks(id_to_task, deps)
 
     outfile.write(prefix.lstrip('\n'))
-    _output_tasks(outfile, id_to_task, deps, plan)
+    _output_tasks(outfile, plan)
     _output_dependencies(outfile, id_to_task, deps)
     outfile.write(suffix.lstrip('\n'))
 

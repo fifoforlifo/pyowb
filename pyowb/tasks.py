@@ -12,11 +12,6 @@ def _next_global_auto_id():
     _global_auto_id += 1
     return auto_id
 
-def _insert_dependency(deps, successor, predecessor):
-    if successor not in deps:
-        deps[successor] = {}
-    deps[successor][predecessor] = True
-
 def parse_category(name):
     index_of_dash = name.find('-')
     if index_of_dash == -1:
@@ -27,7 +22,7 @@ def has_children(task):
     return (CHILDREN in task) and (len(task[CHILDREN]) != 0)
 
 
-def sanitize_tasks(plan, id_to_task, deps):
+def sanitize_tasks(plan, id_to_task, add_child_dependencies):
     def _sanitize_recursive(task, auto_predecessor_stack):
         if ID not in task:
             task[ID] = _next_global_auto_id()
@@ -35,7 +30,12 @@ def sanitize_tasks(plan, id_to_task, deps):
 
         if DEPS not in task:
             task[DEPS] = []
-        for auto_predecessor_id in auto_predecessor_stack:
+        if add_child_dependencies:
+            for auto_predecessor_id in auto_predecessor_stack:
+                if auto_predecessor_id:
+                    task[DEPS].append(auto_predecessor_id)
+        elif len(auto_predecessor_stack):
+            auto_predecessor_id = auto_predecessor_stack[-1]
             if auto_predecessor_id:
                 task[DEPS].append(auto_predecessor_id)
 
@@ -52,17 +52,11 @@ def sanitize_tasks(plan, id_to_task, deps):
                     in_sequence = False
                 else:
                     _sanitize_recursive(child, auto_predecessor_stack)
-                    task[DEPS].append(child[ID])
+                    if add_child_dependencies:
+                        task[DEPS].append(child[ID])
                     if in_sequence:
                         auto_predecessor_stack[-1] = child[ID]
             auto_predecessor_stack.pop()
 
     auto_predecessor_stack = []
     _sanitize_recursive(plan, auto_predecessor_stack)
-
-def validate_tasks(id_to_task, deps):
-    for task in id_to_task.values():
-        for predecessor_id in task[DEPS]:
-            if predecessor_id not in id_to_task:
-                sys.stderr.write('WARNING: ID={task[ID]} NAME={task[NAME]} : unknown dependency "{predecessor_id}"\n'.format(**locals()))
-            _insert_dependency(deps, task[ID], predecessor_id)

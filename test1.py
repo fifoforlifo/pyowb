@@ -99,19 +99,23 @@ nested_sequences_plan = \
                 {
                     ID : 'Top.A0.B0',
                     NAME : 'Top.A0.B0',
+                    EFFORT : 2,
                 },
                 {
                     ID : 'Top.A0.B1',
                     NAME : 'Top.A0.B1',
+                    EFFORT : 3,
                 },
                 SEQUENCE,
                 {
                     ID : 'Top.A0.B2',
                     NAME : 'Top.A0.B2',
+                    EFFORT : 4,
                 },
                 {
                     ID : 'Top.A0.B3',
                     NAME : 'Top.A0.B3',
+                    EFFORT : 5,
                 },
             ],
         },
@@ -124,10 +128,12 @@ nested_sequences_plan = \
                 {
                     ID : 'Top.A1.B0',
                     NAME : 'Top.A1.B0',
+                    EFFORT : 1,
                 },
                 {
                     ID : 'Top.A1.B1',
                     NAME : 'Top.A1.B1',
+                    EFFORT : 5,
                 },
             ],
         },
@@ -135,3 +141,6 @@ nested_sequences_plan = \
 }
 
 plan_to_owb_xml('test1.xml', nested_sequences_plan)
+# note: ganttproject output requires commenting out the call to plan_to_owb_xml().
+# note: ganttproject has no method to recalculate dates, making it basically useless
+#plan_to_ganttproject('test1.gan', nested_sequences_plan)
