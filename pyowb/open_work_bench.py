@@ -7,102 +7,27 @@
 
 import sys
 import math
-import xml.sax.saxutils
 from datetime import datetime, timedelta
-
-ID = 'id'
-NAME = 'name'
-DESC = 'desc'
-DEPS = 'deps'
-EFFORT = 'effort'
-CHILDREN = 'children'
-SEQUENCE = 'sequence'
-PARALLEL = 'parallel'
+from .keywords import *
+from .tasks import *
 
 # Start date is a monday.  End-date calculation needs to add 2 days per 5 (for weekends);
 # starting on a monday simplifies calculation of the extra.
 _global_start_date = datetime(year=2016, month=10, day=10)
 
-_global_auto_id = 100
-def _next_global_auto_id():
-    global _global_auto_id
-    auto_id = '_auto' + str(_global_auto_id)
-    _global_auto_id += 1
-    return auto_id
-
-def _insert_dependency(deps, successor, predecessor):
-    if successor not in deps:
-        deps[successor] = {}
-    deps[successor][predecessor] = True
-
-
-def _xml_escape(string):
-    return xml.sax.saxutils.quoteattr(string)
-
 def _date_as_owb_string(date):
     return date.strftime('%Y-%m-%dT%H:%M:%S')
-
-def _parse_category(name):
-    index_of_dash = name.find('-')
-    if index_of_dash == -1:
-        return ''
-    return name[0:index_of_dash].rstrip()
-
-def _has_children(task):
-    return (CHILDREN in task) and (len(task[CHILDREN]) != 0)
-
-
-def _sanitize_tasks(plan, id_to_task, deps):
-    def _sanitize_recursive(task, auto_predecessor_stack):
-        if ID not in task:
-            task[ID] = _next_global_auto_id()
-        id_to_task[task[ID]] = task
-
-        if DEPS not in task:
-            task[DEPS] = []
-        for auto_predecessor_id in auto_predecessor_stack:
-            if auto_predecessor_id:
-                task[DEPS].append(auto_predecessor_id)
-
-        children = task.get(CHILDREN, None)
-        if children:
-            auto_predecessor_stack.append(None)
-            in_sequence = False
-            for child in children:
-                if child == SEQUENCE:
-                    auto_predecessor_stack[-1] = None
-                    in_sequence = True
-                elif child == PARALLEL:
-                    auto_predecessor_stack[-1] = None
-                    in_sequence = False
-                else:
-                    _sanitize_recursive(child, auto_predecessor_stack)
-                    task[DEPS].append(child[ID])
-                    if in_sequence:
-                        auto_predecessor_stack[-1] = child[ID]
-            auto_predecessor_stack.pop()
-
-    auto_predecessor_stack = []
-    _sanitize_recursive(plan, auto_predecessor_stack)
-
-def _validate_tasks(id_to_task, deps):
-    for task in id_to_task.values():
-        for predecessor_id in task[DEPS]:
-            if predecessor_id not in id_to_task:
-                sys.stderr.write('WARNING: ID={task[ID]} NAME={task[NAME]} : unknown dependency "{predecessor_id}"\n'.format(**locals()))
-            _insert_dependency(deps, task[ID], predecessor_id)
-
 
 def _output_tasks_recursive(outfile, id_to_task, deps, task, level):
     _effort_in_days = task.get(EFFORT, 0)
     _effort_in_calendar_days = _effort_in_days + math.floor((_effort_in_days - 1) / 5) * 2
 
-    _category = _parse_category(task[NAME])
-    _name = _xml_escape(task[NAME])
-    _id = _xml_escape(task[ID])
-    _desc = _xml_escape(task.get(DESC, ' '))
+    _category = parse_category(task[NAME])
+    _name = xml_escape(task[NAME])
+    _id = xml_escape(task[ID])
+    _desc = xml_escape(task.get(DESC, ' '))
     _level = level
-    _summary = 'true' if _has_children(task) else 'false'
+    _summary = 'true' if has_children(task) else 'false'
     _start_date = _date_as_owb_string(_global_start_date)
     _end_date = _date_as_owb_string(_global_start_date + timedelta(days=_effort_in_calendar_days))
 
@@ -149,7 +74,7 @@ def _output_tasks(outfile, id_to_task, deps, plan):
 def _get_leaf_predecessor_ids(id_to_task, predecessor_id, leaf_predecessor_ids):
     def _recursive_resolve(id):
         task = id_to_task[id]
-        if _has_children(task):
+        if has_children(task):
             for child in task[CHILDREN]:
                 if isinstance(child, str):
                     continue
@@ -168,7 +93,7 @@ def _output_dependencies(outfile, id_to_task, deps):
 '''
     outfile.write(prefix.lstrip('\n'))
     for successor_id,predecessor_ids in sorted(deps.items()):
-        if _has_children(id_to_task[successor_id]):
+        if has_children(id_to_task[successor_id]):
             continue
         leaf_predecessor_ids = {} # id:True
         for predecessor_id in predecessor_ids.keys():
@@ -205,8 +130,8 @@ def _output_main_file(outfile, plan):
     id_to_task = {}    
     # key = successor, value = {predecessor:True}
     deps = {}
-    _sanitize_tasks(plan, id_to_task, deps)
-    _validate_tasks(id_to_task, deps)
+    sanitize_tasks(plan, id_to_task, deps)
+    validate_tasks(id_to_task, deps)
 
     outfile.write(prefix.lstrip('\n'))
     _output_tasks(outfile, id_to_task, deps, plan)
