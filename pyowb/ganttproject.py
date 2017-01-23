@@ -46,7 +46,7 @@ def _output_tasks_recursive(outfile, id_to_intid, deps, task, level):
 
     _indent = '    '*level
     _category = parse_category(task[NAME])
-    _name = xml_escape(task[NAME])
+    _name = xml_escape_attr(task[NAME])
     _intid = id_to_intid[task[ID]]
     _desc = task.get(DESC, None)
     _start_date = _date_as_gp_string(_global_start_date)

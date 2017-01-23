@@ -36,9 +36,9 @@ def _output_tasks_recursive(outfile, task, level):
     _effort_in_calendar_days = _effort_in_days + math.floor((_effort_in_days - 1) / 5) * 2
 
     _category = parse_category(task[NAME])
-    _name = xml_escape(task[NAME])
-    _id = xml_escape(task[ID])
-    _desc = xml_escape(task.get(DESC, ' '))
+    _name = xml_escape_attr(task[NAME])
+    _id = xml_escape_attr(task[ID])
+    _desc = xml_escape_attr(task.get(DESC, ' '))
     _level = level
     _summary = 'true' if has_children(task) else 'false'
     _start_date = _date_as_owb_string(_global_start_date)

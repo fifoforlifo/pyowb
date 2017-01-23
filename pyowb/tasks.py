@@ -2,8 +2,11 @@ import sys
 import xml.sax.saxutils
 from .keywords import *
 
-def xml_escape(string):
+def xml_escape_attr(string):
     return xml.sax.saxutils.quoteattr(string)
+
+def xml_escape_elem(string):
+    return xml.sax.saxutils.escape(string)
 
 _global_auto_id = 100
 def _next_global_auto_id():
